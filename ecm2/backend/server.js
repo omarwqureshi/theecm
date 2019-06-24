@@ -12,9 +12,16 @@ const express = require('express'),
     );
 
     const app = express();
+    app.use(express.json());
+    app.use(cors());
     const api = require('./Routes/api.route');
 
-    // app.use(bodyParser.json);
+    //app.use(bodyParser.json);
+    //app.use(bodyParser.urlencoded({     // to support URL-encoded bodies
+      //  extended: true
+      //})); 
+
+    //app.use(express.json);
     // app.use(cors());
     app.use('/api', api);
     const port = 4000;

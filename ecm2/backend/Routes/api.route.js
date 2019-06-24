@@ -2,6 +2,7 @@ const express = require('express');
 const api = express.Router();
 const mongoose  = require('mongoose');
 
+
 const aws = require('aws-sdk');
 const fs = require('fs');
 
@@ -10,13 +11,15 @@ const log = console.log;
 
 aws.config.update({region:'us-west-2'});
 const ec2 = new aws.EC2();
-
+const shell =require('shelljs');
 //array of environments that are on AWS
 const environments = [Environment];
 
 //request for when API calls the environments method
 //loops through ec2 instances and creates an array of Environment objects
 //that will be pushed to the mongodb for later manipulation.
+
+api.use(express.json());
 api.get( '/environments',(req,res) => { 
     const params = {
         Filters: [
@@ -46,13 +49,16 @@ api.get( '/environments',(req,res) => {
                     environments.push(environment);
                  }
               }
-            res.send(JSON.stringify(environments));
+            //res.send(JSON.stringify(environments));
+            res.json(environments);
           }
-        }); 
+        });
+
 }); 
 
-api.post('/update', (req, res) => {
-    const environmentName;
+api.post('/update', (req, res, next) => {
+  const environment_name = req.body.environment_name;
+  
 });
 
 

@@ -1,24 +1,32 @@
+//necessary imports and boilerplate
+//express and importing the api router
 const express = require('express');
 const api = express.Router();
-const aws = require('aws-sdk');
+//file reader that we will need
+//for the environment update script
 const fs = require('fs');
+//Environments Model that Mongoose will use
+//to access MongoDB
 const Environment = require('../Models/Environment');
-const log = console.log;
+//aws and ec2 object for manipulating AWS
+const aws = require('aws-sdk');
 aws.config.update({region:'us-west-2'});
 const ec2 = new aws.EC2();
+//shelljs will be used to call the update shell script
 const shell = require('shelljs');
-
-
-//request for when API calls the environments method
-//loops through ec2 instances and creates an array of Environment objects
-//that will be pushed to the mongodb for later manipulation.
 
 api.use(express.json());
 
+//request for when API calls the environments method
+//loops through ec2 instances and pushes this to mongodb
+//updates a document if it has changed and upserts if it
+//does not exist at all.
 api.get( '/environments',(req,res) => { 
+    //params that we will use to describe the ec2 instance
     const params = {
         Filters: [
           {
+            //filtering the instances by its tag which is the API tag
             Name:'tag:Type',
             Values:['api']
           }
@@ -43,7 +51,6 @@ api.get( '/environments',(req,res) => {
                          environment.deployment_environment = data.Reservations[i].Instances[j].Tags[k].Value;
                      }
                     }
-                    //environments.push(environment);
                     Environment.findOneAndUpdate({environment_name:environment.environment_name},
                       environment, {upsert: true,new: true, runValidators:true},
                         function (err, doc){
@@ -69,6 +76,7 @@ api.post('/update', (req, res, next) => {
 
 api.post('/start', (req, res, next) => {
   const environment_name = req.body.environment_name;
+  const instanceids = [];
   const params = {
     Filters: [
       {
@@ -77,37 +85,27 @@ api.post('/start', (req, res, next) => {
       }
     ]
   };
-  ec2.startInstances(params,function (err, data){
-    if(err){
-      console.log("Could not start instances", err.stack);
-    }else{
-      console.log(data);
-      res.send(data);
-    }
-  });
+  const get = new Promise((resolve, reject) => {
+    ec2.describeInstances(params, (err, data) =>{
+      if(err){
+        reject("error");
+      }else{
+        resolve("got it");
+        console.log(JSON.stringify(data))
+        res.send(data);
+      }
+    });
+  }).then(() => console.log("success"))
 
 });
 
 api.post('/stop', (req, res, next) => {
   const environment_name = req.body.environment_name;
-  
+  const instanceids = [];
+  const p = new Promise()
   const params = {
-    Filters: [
-      {
-      Name:'tag:Group',
-      Values:[environment_name]
-      }
-    ]
+    InstanceIds: instanceids
   };
-  ec2.stopInstances(params,function (err, data){
-    if(err){
-      console.log("Could not start instances", err.stack);
-    }else{
-      console.log(data);
-      res.send(data);
-      res.statusCode.send();
-    }
-  });
 });
 
 api.post('./delete', (req, res, next) => {

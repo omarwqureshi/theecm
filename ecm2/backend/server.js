@@ -22,7 +22,7 @@ const express = require('express'),
       //})); 
 
     //app.use(express.json);
-    // app.use(cors());
+    app.use(cors());
     app.use('/api', api);
     const port = 4000;
     

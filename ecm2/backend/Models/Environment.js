@@ -13,6 +13,12 @@ let Environment = new Schema({
     },
     instanceid: {
         type: String
+    },
+    ip: {
+        type:String
+    },
+    dnsname: {
+        type:String
     }
   },{
         collection: 'environment'

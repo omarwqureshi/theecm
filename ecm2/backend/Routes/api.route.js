@@ -11,15 +11,16 @@ const log = console.log;
 
 aws.config.update({region:'us-west-2'});
 const ec2 = new aws.EC2();
-const shell =require('shelljs');
+const shell = require('shelljs');
 //array of environments that are on AWS
-const environments = [Environment];
+//const environments = [Environment];
 
 //request for when API calls the environments method
 //loops through ec2 instances and creates an array of Environment objects
 //that will be pushed to the mongodb for later manipulation.
 
 api.use(express.json());
+
 api.get( '/environments',(req,res) => { 
     const params = {
         Filters: [
@@ -38,6 +39,8 @@ api.get( '/environments',(req,res) => {
                  const environment = new Environment();
                  environment.instanceid = data.Reservations[i].Instances[j].InstanceId;
                  environment.status = data.Reservations[i].Instances[j].State.Name;
+                 environment.ip = data.Reservations[i].Instances[j].PublicIpAddress;
+                 environment.dnsname = data.Reservations[i].Instances[j].PublicDnsName;
                  for(let k=0;k<data.Reservations[i].Instances[j].Tags.length;k++){
                      if(data.Reservations[i].Instances[j].Tags[k].Key === "Group"){
                          environment.environment_name = data.Reservations[i].Instances[j].Tags[k].Value;
@@ -46,33 +49,77 @@ api.get( '/environments',(req,res) => {
                          environment.deployment_environment = data.Reservations[i].Instances[j].Tags[k].Value;
                      }
                     }
-                    environments.push(environment);
+                    //environments.push(environment);
+                    if(Environment.estimatedDocumentCount().then((count)=>count>0)){
+                      environment.save().then(() => console.log("saved") );
+                    }else{
+                      environment.update().then(() => log("updated"));
+                    }
+                    
                  }
               }
             //res.send(JSON.stringify(environments));
-            res.json(environments);
+            //res.json(environments);
+            res.status(200).send("success");
           }
         });
-
 }); 
+
+
+api.get('/count', (req,res) => {
+
+  const count = await Model.countDocuments({}).then.save;
+  console.log(count);
+
+});
+
 
 api.post('/update', (req, res, next) => {
   const environment_name = req.body.environment_name;
-  
-});
-
-
-api.get('/test', (req, res, next) => {
-    console.log("logged");
-
+  shell.exec('./initiate-ec2.sh');
+  res.send(environment_name);
 });
 
 api.post('/start', (req, res, next) => {
+  const environment_name = req.body.environment_name;
+  const params = {
+    Filters: [
+      {
+      Name:'tag:Group',
+      Values:[environment_name]
+      }
+    ]
+  };
+  ec2.startInstances(params,function (err, data){
+    if(err){
+      console.log("Could not start instances", err.stack);
+    }else{
+      console.log(data);
+      res.send(data);
+    }
+  });
 
 });
 
-api.post('./stop', (req, res, next) => {
-
+api.post('/stop', (req, res, next) => {
+  const environment_name = req.body.environment_name;
+  const params = {
+    Filters: [
+      {
+      Name:'tag:Group',
+      Values:[environment_name]
+      }
+    ]
+  };
+  ec2.stopInstances(params,function (err, data){
+    if(err){
+      console.log("Could not start instances", err.stack);
+    }else{
+      console.log(data);
+      res.send(data);
+      res.statusCode.send();
+    }
+  });
 });
 
 api.post('./delete', (req, res, next) => {

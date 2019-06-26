@@ -1,19 +1,13 @@
 const express = require('express');
 const api = express.Router();
-const mongoose  = require('mongoose');
-
-
 const aws = require('aws-sdk');
 const fs = require('fs');
-
 const Environment = require('../Models/Environment');
 const log = console.log;
-
 aws.config.update({region:'us-west-2'});
 const ec2 = new aws.EC2();
 const shell = require('shelljs');
-//array of environments that are on AWS
-//const environments = [Environment];
+
 
 //request for when API calls the environments method
 //loops through ec2 instances and creates an array of Environment objects
@@ -50,32 +44,25 @@ api.get( '/environments',(req,res) => {
                      }
                     }
                     //environments.push(environment);
-                    if(Environment.estimatedDocumentCount().then((count)=>count>0)){
-                      environment.save().then(() => console.log("saved") );
-                    }else{
-                      environment.update().then(() => log("updated"));
-                    }
-                    
+                    Environment.findOneAndUpdate({environment_name:environment.environment_name},
+                      environment, {upsert: true,new: true, runValidators:true},
+                        function (err, doc){
+                          if (err){
+                            log(err);
+                          }else{
+                            log("saved " + doc);
+                          }
+                        })
                  }
               }
-            //res.send(JSON.stringify(environments));
-            //res.json(environments);
             res.status(200).send("success");
           }
         });
 }); 
 
-
-api.get('/count', (req,res) => {
-
-  const count = await Model.countDocuments({}).then.save;
-  console.log(count);
-
-});
-
-
 api.post('/update', (req, res, next) => {
   const environment_name = req.body.environment_name;
+  fs.re
   shell.exec('./initiate-ec2.sh');
   res.send(environment_name);
 });
@@ -103,6 +90,7 @@ api.post('/start', (req, res, next) => {
 
 api.post('/stop', (req, res, next) => {
   const environment_name = req.body.environment_name;
+  
   const params = {
     Filters: [
       {

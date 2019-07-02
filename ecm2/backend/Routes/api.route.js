@@ -8,7 +8,6 @@ const ec2 = new aws.EC2();
 const s3 = new aws.S3();
 const route53 = new aws.Route53();
 
-const shell = require('shelljs');
 
 api.use(express.json());
 
@@ -50,7 +49,7 @@ api.get( '/environments',(_req,res) => {
                             console.log(err);
           
                           }else{
-                            console.log("saved " + doc);
+                            console.log("saved");
                           }
                         })
                  }
@@ -71,23 +70,13 @@ api.get( '/environments',(_req,res) => {
 
 api.post('/update', (req, res) => {
   const environment_name = req.body.environment_name;
-  fs.re
-  shell.exec('./initiate-ec2.sh');
   res.send(environment_name);
 });
 
 api.post('/start', (req, res) => {
   const environment_name = req.body.environment_name;
   const instanceids = [];
-  const params = {
-    Filters: [
-      {
-      Name:'tag:Group',
-      Values:[environment_name]
-      }
-    ]
-  };
-  const getEnv = ec2.describeInstances(params).promise();
+  const getEnv = ec2.describeInstances({Filters:[{Name:'tag:Group',Values:[environment_name]}]}).promise();
   getEnv.then((data) =>{
     for(let i=0;i<data.Reservations.length;i++){
       for(let j=0;j<data.Reservations[i].Instances.length;j++){

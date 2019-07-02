@@ -11,8 +11,9 @@ let Environment = new Schema({
     status: {
         type: String
     },
+    
     instanceid: {
-        type: String
+        type: String,
     },
     ip: {
         type:String

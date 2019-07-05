@@ -45,18 +45,15 @@
         <td mat-cell *matCellDef="let element"> {{element.deployment_environment}} </td>
       </ng-container>
 
-      <ng-container matColumnDef="Action">
-
-      </ng-container>
-
-      <!-- <ng-container matColumnDef="action">
+      <ng-container matColumnDef="action">
         <th mat-header-cell *matHeaderCellDef> Action </th>
         <td mat-cell *matCellDef="let element; let i = index;">
-          <button mat-raised-button color="primary" class="push-right"
-            [routerLink]="['/edit-student/', element._id]">Edit</button>
-          <button mat-raised-button color="accent" >Delete</button>
+          <button mat-raised-button color="primary" (click)="startEnvironment(element)" class="push-right">Start</button>
+          <button mat-raised-button color="primary" (click)="stopEnvironment(element)">Stop</button>
+          <button mat-raised-button color="warn" (click)="deleteEnvironment(element)" class="push-right">Delete</button>
         </td>
-      </ng-container> -->
+      </ng-container>
+
 
       <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
       <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>

@@ -1,6 +1,6 @@
 const express = require('express'),
-    path = require('path'),
-    bodyParser = require('body-parser'),
+    //path = require('path'),
+    //bodyParser = require('body-parser'),
     cors = require('cors'),
     mongoose = require('mongoose'),
     config = require('./database/db');
@@ -16,12 +16,7 @@ const express = require('express'),
     app.use(cors());
     const api = require('./Routes/api.route');
 
-    //app.use(bodyParser.json);
-    //app.use(bodyParser.urlencoded({     // to support URL-encoded bodies
-      //  extended: true
-      //})); 
 
-    //app.use(express.json);
     app.use(cors());
     app.use('/api', api);
     const port = 4000;
@@ -30,6 +25,7 @@ const express = require('express'),
         res.send("hello world");
     });
 
+    // eslint-disable-next-line no-unused-vars
     const server = app.listen(port, function(){
         console.log("listening on port " + port);
     });

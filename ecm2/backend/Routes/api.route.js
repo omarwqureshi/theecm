@@ -1,13 +1,15 @@
 const express = require('express');
 const api = express.Router();
-const fs = require('fs');
+
 const Environment = require('../Models/Environment');
+
 const aws = require('aws-sdk');
 aws.config.update({region: 'us-west-2'});
 const ec2 = new aws.EC2();
 const s3 = new aws.S3();
 const route53 = new aws.Route53();
 
+const log = console.log;
 
 api.use(express.json());
 
@@ -44,12 +46,12 @@ api.get( '/environments',(_req,res) => {
                     }
                     Environment.findOneAndUpdate({environment_name:environment.environment_name},
                       environment, {upsert: true,new: true, runValidators:true,useFindAndModify:false},
-                        function (err, doc){
+                        function (err){
                           if (err){
                             console.log(err);
           
                           }else{
-                            console.log("saved");
+                            //console.log("saved");
                           }
                         })
                  }
@@ -88,7 +90,7 @@ api.post('/start', (req, res) => {
     console.log(data);
     res.status(200).send();
   }).catch(err=>console.log(err))
-
+  
 });
 
 api.post('/stop', (req, res) => {
@@ -120,10 +122,27 @@ api.post('/stop', (req, res) => {
 
 api.post('/delete', (req, res,) => {
    const environment_name = req.body.environment_name;
-   const instanceids = {}
-   const name  = environment_name + '.nonprod.appsight.us';
-   const name2 = '*' + environment_name + '.nonprod.appsight.us';
+   const dsp = req.body.deployment_environment;
    const ip = req.body.ip;
+   const instanceids = [];
+   const name  = environment_name + '.nonprod.appsight.us';
+   const name2 = '*.' + environment_name + '.nonprod.appsight.us';
+   console.log(name)
+   
+  const deleteS3 = s3.listObjects({Bucket:"mesmer-nonkub-"+dsp+"-static-content",Prefix:environment_name}).promise()
+  .then((data) =>{
+    for(let i=0;i<data.Contents.length;i++){
+      const str = data.Contents[i].Key;
+      if(str.substring(0,str.indexOf("/")) == environment_name){
+        return str
+      }
+    }
+    //return s3.deleteObjects({Bucket:"mesmer-nonkub-"+dsp+"static-content", Key:s3key}).promise();
+  }).then((str)=>{
+    return s3.deleteObjects({Bucket:"mesmer-nonkub-"+dsp+"-static-content",Delete:{Objects:[{Key:str}]}}).promise()
+  }).then((data)=>{
+    log("success " + data)
+  }).catch(err=>log(err))
 
    const terminateInstances = ec2.describeInstances({Filters:[{Name:'tag:Group',Values:[environment_name]}]}).promise()
    .then((data)=>{
@@ -132,64 +151,69 @@ api.post('/delete', (req, res,) => {
          instanceids.push(data.Reservations[i].Instances[j].InstanceId);
        }
      }
-     return ec2.stopInstances({InstanceIds:instanceids}).promise();
+     return ec2.terminateInstances({InstanceIds:instanceids}).promise();
    }).then((data)=>{
      console.log(data);
-     res.status(200).send();
    }).catch(err=>console.log(err,err.stack))
+
    const params = {
     ChangeBatch : {
-      "Comment": "Generated Appsight deployment",
-      "Changes":[
+      Comment: "Generated Appsight deployment",
+      Changes:[
           {
-              "Action": "DELETE",
-              "ResourceRecordSet": {
-                  "Name": name,
-                  "Type": "A",
-                  "TTL": 600,
-                  "ResourceRecords": [
+              Action: "DELETE",
+              ResourceRecordSet: {
+                  Name: name,
+                  Type: "A",
+                  TTL: 600,
+                  ResourceRecords: [
                       {
-                          'Value': ip
+                          Value: ip
                       },
                   ],
               },
           },          
-          {
-            "Action": "DELETE",
-            "ResourceRecordSet": {
-                "Name": name2,
-                "Type": "A",
-                "TTL": 600,
-                "ResourceRecords": [
-                    {
-                        'Value': ip
-                    },
-                ],
-            },
-        },
+        
 
       ],
 
     },
     HostedZoneId: "Z1DA3K8M5IPNAD"
   };
-   const deleteRoute53 =  route53.changeResourceRecordSets(params).promise()
-   Promise.all([terminateInstances, deleteRoute53]).then(()=>console.log("success")).catch(err=>console.log(err,err.stack));
-   res.send(environment_name + ip);
-});
-api.get('/buckets', (req,res) =>{
-  const params = {
-    Bucket:"mesmer-nonkub-dev-static-content",
-    //Key:"dummy-data-test"
-  };
-  s3.headBucket(params, (err, data)=>{
-    if(err){
-      console.log(err,err.stack);
-    }else{
-      console.log(data);
-      res.status(200).send();
-    }
-  })
+   const params2 = {
+    ChangeBatch : {
+      Comment: "Generated Appsight deployment",
+      Changes:[
+          {
+              Action: "DELETE",
+              ResourceRecordSet: {
+                  Name: name2,
+                  Type: "A",
+                  TTL: 600,
+                  ResourceRecords: [
+                      {
+                          Value: ip
+                      },
+                  ],
+              },
+          },          
+        
 
-})
+      ],
+
+    },
+    HostedZoneId: "Z1DA3K8M5IPNAD"
+  };
+
+   const deleteFirstRoute53 =  route53.changeResourceRecordSets(params).promise();
+   const deleteSecondRoute53 = route53.changeResourceRecordSets(params2).promise();
+   Promise.all([deleteS3, terminateInstances, deleteFirstRoute53, deleteSecondRoute53])
+   .then(()=>{
+    res.statusCode(200).send();
+   }).catch((err)=>res.send(err))
+});
+
+//api.get()
+
+
 module.exports = api;
